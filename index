@@ -1,1 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>席位智聯 | 預約管理系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        /* 自訂滾動條 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
 
+    <!-- 導航欄 -->
+    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-primary-600 rounded-lg text-white">
+                        <i data-lucide="calendar-check" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="text-xl font-bold bg-gradient-to-r from-primary-600 to-indigo-600 bg-clip-text text-transparent">席位智聯</span>
+                        <span class="text-xs block text-slate-400 dark:text-slate-500">CP1 Data Model 實作展示</span>
+                    </div>
+                </div>
+
+                <!-- 右側操作：深色模式切換與統計 -->
+                <div class="flex items-center space-x-4">
+                    <!-- 深色模式按鈕 -->
+                    <button id="themeToggle" class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="切換深淺色模式">
+                        <i id="themeIcon" data-lucide="moon" class="w-5 h-5"></i>
+                    </button>
+                    <!-- 統計簡介 -->
+                    <div class="hidden sm:flex items-center space-x-2 text-sm bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-slate-600 dark:text-slate-300">
+                        <span class="inline-block w-2.5 h-2.5 bg-green-500 rounded-full animate-ping"></span>
+                        <span class="font-medium">系統運行中</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主體內容 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- 儀表板看板 (Dashboard) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <!-- 總預約 -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex items-center space-x-4">
+                <div class="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                    <i data-lucide="database" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">總預約筆數</p>
+                    <h3 id="statTotal" class="text-2xl font-bold mt-1 text-slate-800 dark:text-white">0</h3>
+                </div>
+            </div>
+            <!-- 待確認 -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex items-center space-x-4">
+                <div class="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl">
+                    <i data-lucide="clock-3" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">待確認 (pending)</p>
+                    <h3 id="statPending" class="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">0</h3>
+                </div>
+            </div>
+            <!-- 已確認 -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex items-center space-x-4">
+                <div class="p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                    <i data-lucide="calendar-check-2" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">已確認 (confirmed)</p>
+                    <h3 id="statConfirmed" class="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">0</h3>
+                </div>
+            </div>
+            <!-- 總用餐人數 -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex items-center space-x-4">
+                <div class="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">總預約人數 (pax)</p>
+                    <h3 id="statPax" class="text-2xl font-bold mt-1 text-slate-800 dark:text-white">0</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- 左側：新增預約表單 (35% w) - 已修正手機版 Sticky 遮擋問題，並新增手機端摺疊收縮功能 -->
+            <div class="lg:col-span-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 lg:sticky lg:top-24 transition-all">
+                <div class="flex items-center justify-between mb-4 lg:mb-6">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5 text-primary-500"></i>
+                        <h2 class="text-lg font-bold text-slate-800 dark:text-white">新增預約紀錄</h2>
+                    </div>
+                    <!-- 行動端摺疊切換按鈕 -->
+                    <button id="toggleFormBtn" class="lg:hidden flex items-center space-x-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 transition-all">
+                        <span id="toggleText">展開表單</span>
+                        <i id="toggleIcon" data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200"></i>
+                    </button>
+                </div>
+
+                <!-- 預約表單本體：在小螢幕預設隱藏，大螢幕 (lg) 預設恆常顯示 -->
+                <form id="reservationForm" class="space-y-5 hidden lg:block">
+                    <!-- userId -->
+                    <div>
+                        <label for="userId" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            顧客帳號 (userId) <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative rounded-md shadow-sm">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="user" class="w-4 h-4"></i>
+                            </div>
+                            <input type="text" id="userId" required
+                                class="block w-full pl-10 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white text-sm"
+                                placeholder="例如: user_8892">
+                        </div>
+                    </div>
+
+                    <!-- reservationTime -->
+                    <div>
+                        <label for="reservationTime" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            預約抵達時間 (reservationTime) <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative rounded-md shadow-sm">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                            </div>
+                            <input type="datetime-local" id="reservationTime" required
+                                class="block w-full pl-10 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white text-sm">
+                        </div>
+                    </div>
+
+                    <!-- pax -->
+                    <div>
+                        <label for="pax" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            預約人數 (pax) <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative rounded-md shadow-sm">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="users" class="w-4 h-4"></i>
+                            </div>
+                            <input type="number" id="pax" min="1" max="20" required value="2"
+                                class="block w-full pl-10 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white text-sm"
+                                placeholder="請輸入用餐人數">
+                        </div>
+                    </div>
+
+                    <!-- notes -->
+                    <div>
+                        <label for="notes" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            備註事項 (notes)
+                        </label>
+                        <textarea id="notes" rows="3"
+                            class="block w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white text-sm"
+                            placeholder="例如：過敏需求、需要兒童餐椅、窗邊位置等..."></textarea>
+                    </div>
+
+                    <button type="submit" 
+                        class="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                        <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                        送出預約資料
+                    </button>
+                </form>
+            </div>
+
+            <!-- 右側：資料庫紀錄展示區 (65% w) -->
+            <div class="lg:col-span-8 space-y-4">
+                
+                <!-- 篩選與搜尋面板 -->
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <!-- 搜尋 -->
+                    <div class="relative w-full md:w-72">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </div>
+                        <input type="text" id="searchBar"
+                            class="block w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white text-xs"
+                            placeholder="搜尋顧客 ID 或 備註...">
+                    </div>
+
+                    <!-- 篩選狀態 -->
+                    <div class="flex items-center space-x-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                        <span class="text-xs text-slate-400 whitespace-nowrap"><i data-lucide="filter" class="w-3.5 h-3.5 inline mr-1"></i>狀態篩選:</span>
+                        <div class="flex space-x-1">
+                            <button onclick="filterStatus('all')" class="status-filter-btn px-3 py-1 text-xs rounded-full font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800">全部</button>
+                            <button onclick="filterStatus('pending')" class="status-filter-btn px-3 py-1 text-xs rounded-full font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-transparent">待確認</button>
+                            <button onclick="filterStatus('confirmed')" class="status-filter-btn px-3 py-1 text-xs rounded-full font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-transparent">已確認</button>
+                            <button onclick="filterStatus('completed')" class="status-filter-btn px-3 py-1 text-xs rounded-full font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-transparent">已完成</button>
+                            <button onclick="filterStatus('cancelled')" class="status-filter-btn px-3 py-1 text-xs rounded-full font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-transparent">已取消</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 預約卡片容器 -->
+                <div id="recordsList" class="space-y-4">
+                    <!-- 動態渲染處 -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 訊息提示通知 -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span id="toastMsg" class="text-sm font-medium"></span>
+        </div>
+    </div>
+
+    <script>
+        // 初始化預置紀錄 (Data Model Base Records)
+        let reservations = [
+            {
+                id: "res_y8b7c6d5a",
+                createdAt: "2026-05-22 10:15:30",
+                status: "confirmed",
+                userId: "user_wang88",
+                reservationTime: "2026-05-25 18:30",
+                pax: 4,
+                notes: "需要靠窗的沙發位，希望可以加一張嬰兒餐椅。"
+            },
+            {
+                id: "res_p2m1n0b9v",
+                createdAt: "2026-05-22 11:40:12",
+                status: "pending",
+                userId: "user_chen9527",
+                reservationTime: "2026-05-26 12:00",
+                pax: 2,
+                notes: "慶祝週年紀念日，如果可以的話想要安靜一點的角落。"
+            },
+            {
+                id: "res_w3e4r5t6y",
+                createdAt: "2026-05-21 16:22:05",
+                status: "completed",
+                userId: "user_lee101",
+                reservationTime: "2026-05-22 11:30",
+                pax: 6,
+                notes: "家庭聚餐。"
+            }
+        ];
+
+        let currentFilter = 'all';
+        let searchQuery = '';
+
+        // DOM Elements
+        const form = document.getElementById('reservationForm');
+        const recordsList = document.getElementById('recordsList');
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMsg');
+        const searchBar = document.getElementById('searchBar');
+        
+        // 手機版摺疊功能元素
+        const toggleFormBtn = document.getElementById('toggleFormBtn');
+        const toggleText = document.getElementById('toggleText');
+        const toggleIcon = document.getElementById('toggleIcon');
+
+        // 時間輸入框預設為「明天晚上 6 點」
+        window.addEventListener('DOMContentLoaded', () => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(18, 0, 0, 0);
+            
+            // 轉換為在地時間格式以供 datetime-local 讀取
+            const localIsoString = new Date(tomorrow.getTime() - (tomorrow.getTimezoneOffset() * 60000))
+                .toISOString()
+                .slice(0, 16);
+            document.getElementById('reservationTime').value = localIsoString;
+            
+            // 初始數據渲染
+            renderRecords();
+            updateStatistics();
+            lucide.createIcons();
+            
+            // 偵測系統深色主題偏好
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+                themeIcon.setAttribute('data-lucide', 'sun');
+                lucide.createIcons();
+            }
+        });
+
+        // 手機版表單展開/收合切換邏輯
+        toggleFormBtn.addEventListener('click', () => {
+            const isHidden = form.classList.contains('hidden');
+            if (isHidden) {
+                form.classList.remove('hidden');
+                toggleText.innerText = '收合表單';
+                toggleIcon.style.transform = 'rotate(180deg)';
+            } else {
+                form.classList.add('hidden');
+                toggleText.innerText = '展開表單';
+                toggleIcon.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // 監聽主題切換
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            themeIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+            showToast(isDark ? '已開啟深色模式' : '已開啟淺色模式');
+        });
+
+        // 表單提交處理
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const userId = document.getElementById('userId').value.trim();
+            const rawTime = document.getElementById('reservationTime').value;
+            const pax = parseInt(document.getElementById('pax').value);
+            const notes = document.getElementById('notes').value.trim();
+
+            // 格式化時間呈現 yyyy-MM-dd HH:mm
+            const reservationTime = rawTime.replace('T', ' ');
+
+            // 生成唯一隨機 ID
+            const randomId = "res_" + Math.random().toString(36).substring(2, 11);
+            
+            // 當前時間戳記
+            const now = new Date();
+            const createdAt = now.getFullYear() + '-' + 
+                String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                String(now.getDate()).padStart(2, '0') + ' ' + 
+                String(now.getHours()).padStart(2, '0') + ':' + 
+                String(now.getMinutes()).padStart(2, '0') + ':' + 
+                String(now.getSeconds()).padStart(2, '0');
+
+            // 建立標準一筆符合 Model 規範之 Record
+            const newRecord = {
+                id: randomId,
+                createdAt: createdAt,
+                status: 'pending', // 預設狀態為 pending
+                userId: userId,
+                reservationTime: reservationTime,
+                pax: pax,
+                notes: notes || '無額外備註。'
+            };
+
+            // 新增至資料串最前方
+            reservations.unshift(newRecord);
+            
+            // 重置表單與更新畫面
+            form.reset();
+            // 重新將時間設定回預設
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(18, 0, 0, 0);
+            document.getElementById('reservationTime').value = new Date(tomorrow.getTime() - (tomorrow.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+
+            // 如果在行動端，提交後自動將表單摺疊起來以騰出視野
+            if (window.innerWidth < 1024) {
+                form.classList.add('hidden');
+                toggleText.innerText = '展開表單';
+                toggleIcon.style.transform = 'rotate(0deg)';
+            }
+
+            renderRecords();
+            updateStatistics();
+            showToast('預約建立成功！狀態預設為: 待確認');
+        });
+
+        // 搜尋欄監聽
+        searchBar.addEventListener('input', (e) => {
+            searchQuery = e.target.value.toLowerCase();
+            renderRecords();
+        });
+
+        // 狀態篩選處理
+        function filterStatus(status) {
+            currentFilter = status;
+            
+            // 更新篩選按鈕樣式
+            const buttons = document.querySelectorAll('.status-filter-btn');
+            buttons.forEach(btn => {
+                btn.className = "status-filter-btn px-3 py-1 text-xs rounded-full font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-transparent";
+            });
+
+            // 查找並標記選取的按鈕
+            event.target.className = "status-filter-btn px-3 py-1 text-xs rounded-full font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800";
+            
+            renderRecords();
+        }
+
+        // 修改預約狀態 (Update Status)
+        function changeStatus(id, newStatus) {
+            const record = reservations.find(r => r.id === id);
+            if (record) {
+                record.status = newStatus;
+                renderRecords();
+                updateStatistics();
+                showToast(`預約狀態已更新為: ${getStatusChinese(newStatus)}`);
+            }
+        }
+
+        // 刪除紀錄
+        function deleteRecord(id) {
+            reservations = reservations.filter(r => r.id !== id);
+            renderRecords();
+            updateStatistics();
+            showToast('預約紀錄已成功刪除');
+        }
+
+        // 輔助函式：取得狀態中文
+        function getStatusChinese(status) {
+            switch(status) {
+                case 'pending': return '待確認';
+                case 'confirmed': return '已確認';
+                case 'completed': return '已完成';
+                case 'cancelled': return '已取消';
+                default: return status;
+            }
+        }
+
+        // 更新數據看板
+        function updateStatistics() {
+            document.getElementById('statTotal').innerText = reservations.length;
+            document.getElementById('statPending').innerText = reservations.filter(r => r.status === 'pending').length;
+            document.getElementById('statConfirmed').innerText = reservations.filter(r => r.status === 'confirmed').length;
+            
+            const totalPax = reservations.reduce((sum, r) => sum + r.pax, 0);
+            document.getElementById('statPax').innerText = totalPax;
+        }
+
+        // 顯示通知訊息
+        function showToast(message) {
+            toastMsg.innerText = message;
+            toast.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 3000);
+        }
+
+        // 核心渲染邏輯 (Read Records)
+        function renderRecords() {
+            recordsList.innerHTML = '';
+
+            // 1. 進行狀態與搜尋過濾
+            const filtered = reservations.filter(r => {
+                const matchesStatus = currentFilter === 'all' || r.status === currentFilter;
+                const matchesSearch = r.userId.toLowerCase().includes(searchQuery) || r.notes.toLowerCase().includes(searchQuery);
+                return matchesStatus && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                recordsList.innerHTML = `
+                    <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 text-center text-slate-400">
+                        <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"></i>
+                        <p class="text-sm">查無符合篩選條件的預約紀錄</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            // 2. 建立卡片
+            filtered.forEach(record => {
+                let statusColor = "";
+                let statusBadgeStyle = "";
+                
+                // 依據狀態給予不同顏色主題
+                if (record.status === 'pending') {
+                    statusColor = "border-l-amber-500 bg-amber-50/20 dark:bg-amber-500/5";
+                    statusBadgeStyle = "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+                } else if (record.status === 'confirmed') {
+                    statusColor = "border-l-emerald-500 bg-emerald-50/20 dark:bg-emerald-500/5";
+                    statusBadgeStyle = "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+                } else if (record.status === 'completed') {
+                    statusColor = "border-l-slate-400 bg-slate-50/50 dark:bg-slate-500/5";
+                    statusBadgeStyle = "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300";
+                } else if (record.status === 'cancelled') {
+                    statusColor = "border-l-rose-500 bg-rose-50/20 dark:bg-rose-500/5";
+                    statusBadgeStyle = "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400";
+                }
+
+                const card = document.createElement('div');
+                card.className = `bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-y border-r border-l-4 border-slate-100 dark:border-slate-700/50 p-5 ${statusColor} transition-all hover:shadow-md duration-200`;
+                
+                card.innerHTML = `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                        <!-- 基本身份 & 狀態標章 -->
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300">
+                                <i data-lucide="user" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 dark:text-white">${record.userId}</h4>
+                                <p class="text-xs text-slate-400 dark:text-slate-500 font-mono">ID: ${record.id}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${statusBadgeStyle}">
+                                ${getStatusChinese(record.status)}
+                            </span>
+                            <!-- 刪除按鈕 -->
+                            <button onclick="deleteRecord('${record.id}')" 
+                                class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors"
+                                title="刪除預約">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 預約明細 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm border-t border-slate-100 dark:border-slate-700/50 pt-3 text-slate-600 dark:text-slate-300">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+                            <span class="font-medium text-slate-400">抵達時間：</span>
+                            <span class="text-slate-800 dark:text-slate-200">${record.reservationTime}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="users-2" class="w-4 h-4 text-slate-400"></i>
+                            <span class="font-medium text-slate-400">預約人數：</span>
+                            <span class="text-slate-800 dark:text-slate-200 font-bold">${record.pax} 人</span>
+                        </div>
+                    </div>
+
+                    <!-- 備註說明 -->
+                    <div class="mt-3 text-xs bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl text-slate-500 dark:text-slate-400">
+                        <span class="font-bold block mb-1">顧客備註：</span>
+                        ${record.notes}
+                    </div>
+
+                    <!-- 行動按鈕 (Update Status API 連動) -->
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-2 justify-end">
+                        <span class="text-xs text-slate-400 self-center mr-auto">系統收單時間: ${record.createdAt}</span>
+                        
+                        ${record.status === 'pending' ? `
+                            <button onclick="changeStatus('${record.id}', 'confirmed')" class="flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                <span>核准預約</span>
+                            </button>
+                        ` : ''}
+
+                        ${record.status === 'confirmed' ? `
+                            <button onclick="changeStatus('${record.id}', 'completed')" class="flex items-center space-x-1 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors">
+                                <i data-lucide="flag" class="w-3.5 h-3.5"></i>
+                                <span>完成用餐</span>
+                            </button>
+                        ` : ''}
+
+                        ${record.status !== 'completed' && record.status !== 'cancelled' ? `
+                            <button onclick="changeStatus('${record.id}', 'cancelled')" class="flex items-center space-x-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-rose-950/20 dark:text-rose-400 text-xs font-semibold rounded-lg transition-colors">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                <span>取消預約</span>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+
+                recordsList.appendChild(card);
+            });
+
+            // 初始化新生成的 Lucide 圖標
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
