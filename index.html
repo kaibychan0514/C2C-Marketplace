@@ -29,6 +29,7 @@
         }
     </script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
         body {
@@ -82,6 +83,21 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="md:col-span-1 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center"><i data-lucide="pie-chart" class="w-3.5 h-3.5 mr-1 text-primary-500"></i> 預約狀態佔比</h4>
+                <div class="h-40 flex justify-center items-center">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <div class="md:col-span-2 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center"><i data-lucide="trending-up" class="w-3.5 h-3.5 mr-1 text-indigo-500"></i> 每日用餐人數趨勢</h4>
+                <div class="h-40">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex items-center space-x-4">
                 <div class="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
@@ -197,13 +213,24 @@
             <div class="lg:col-span-8 space-y-4">
                 
                 <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div class="relative w-full md:w-72">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <i data-lucide="search" class="w-4 h-4"></i>
+                    <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                        <div class="relative w-full sm:w-64">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="search" class="w-4 h-4"></i>
+                            </div>
+                            <input type="text" id="searchBar"
+                                class="block w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white text-xs"
+                                placeholder="搜尋顧客 ID 或 備註...">
                         </div>
-                        <input type="text" id="searchBar"
-                            class="block w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:text-white text-xs"
-                            placeholder="搜尋顧客 ID 或 備註...">
+
+                        <div class="flex items-center space-x-2 w-full sm:w-auto">
+                            <span class="text-xs text-slate-400 whitespace-nowrap"><i data-lucide="arrow-up-down" class="w-3.5 h-3.5 inline mr-1"></i>排序:</span>
+                            <select id="sortSelect" onchange="handleSort(this.value)" class="bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-xs px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                                <option value="timeDesc">時間：新 ➔ 舊</option>
+                                <option value="timeAsc">時間：舊 ➔ 新</option>
+                                <option value="paxDesc">人數：多 ➔ 少</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="flex items-center space-x-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
@@ -218,8 +245,7 @@
                     </div>
                 </div>
 
-                <div id="recordsList" class="space-y-4">
-                    </div>
+                <div id="recordsList" class="space-y-4"></div>
             </div>
 
         </div>
@@ -269,6 +295,8 @@
 
         let currentFilter = 'all';
         let searchQuery = '';
+        let currentSort = 'timeDesc'; // [功能新增] 預設排序：時間新到舊
+        let statusChart, trendChart;  // [功能新增] 圖表物件全域變數
 
         // DOM Elements
         const form = document.getElementById('reservationForm');
@@ -284,7 +312,7 @@
         const toggleText = document.getElementById('toggleText');
         const toggleIcon = document.getElementById('toggleIcon');
 
-        // [新增] 異步資料發送函式 (POST)
+        // 異步資料發送函式 (POST)
         async function syncToSheet(payload) {
             try {
                 const response = await fetch(APPS_SCRIPT_URL, {
@@ -301,7 +329,7 @@
             }
         }
 
-        // [新增] 欄位規範清洗器 (將 Sheet header 轉回前端常規 Key)
+        // 欄位規範清洗器 (將 Sheet header 轉回前端常規 Key)
         function normalizeRecord(record) {
             const keys = Object.keys(record);
             const findValue = (targetKey) => {
@@ -320,7 +348,7 @@
             };
         }
 
-        // [新增] 異步資料讀取函式 (GET)
+        // 異步資料讀取函式 (GET)
         async function fetchRecordsFromSheet() {
             try {
                 const response = await fetch(APPS_SCRIPT_URL);
@@ -336,6 +364,92 @@
                 console.error("Fetch from sheet failed, using fallback database:", err);
                 return false;
             }
+        }
+
+        // [功能新增] 初始化 Chart.js 畫布配置
+        function initCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#64748b';
+
+            // 狀態圓餅圖 (Doughnut)
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['待確認', '已確認', '已完成', '已取消'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#f59e0b', '#10b981', '#64748b', '#f43f5e'],
+                        borderWidth: isDark ? 2 : 1,
+                        borderColor: isDark ? '#1e293b' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: textColor, font: { family: 'Noto Sans TC', size: 11 } }
+                        }
+                    }
+                }
+            });
+
+            // 人數趨勢折線圖 (Line)
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '預約總人數',
+                        data: [],
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
+                        y: { grid: { color: isDark ? '#334155' : '#f1f5f9' }, ticks: { color: textColor, beginAtZero: true } }
+                    }
+                }
+            });
+        }
+
+        // [功能新增] 實時重新計算並渲染圖表數據
+        function updateCharts() {
+            if (!statusChart || !trendChart) return;
+
+            // 1. 刷新圓餅圖數據
+            const counts = { pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+            reservations.forEach(r => { if(counts[r.status] !== undefined) counts[r.status]++; });
+            statusChart.data.datasets[0].data = [counts.pending, counts.confirmed, counts.completed, counts.cancelled];
+            statusChart.update();
+
+            // 2. 刷新趨勢線圖數據 (按日期排序與累積總人數)
+            const dateMap = {};
+            reservations.forEach(r => {
+                const date = r.reservationTime.split(' ')[0] || '未定日期';
+                dateMap[date] = (dateMap[date] || 0) + r.pax;
+            });
+            const sortedDates = Object.keys(dateMap).sort();
+            trendChart.data.labels = sortedDates.map(d => d.substring(5)); // 只取月-日簡化外觀
+            trendChart.data.datasets[0].data = sortedDates.map(d => dateMap[d]);
+            trendChart.update();
+        }
+
+        // [功能新增] 排序變更控制器
+        function handleSort(sortType) {
+            currentSort = sortType;
+            renderRecords();
         }
 
         // 頁面加載生命週期 (修改為優先拉取試算表資料)
@@ -355,8 +469,11 @@
                 reservations = JSON.parse(localCache);
             }
 
+            // 初始化與刷新所有介面組件
+            initCharts();
             renderRecords();
             updateStatistics();
+            updateCharts();
             lucide.createIcons();
             
             // 優先發起雲端同步
@@ -364,6 +481,7 @@
             if (success) {
                 renderRecords();
                 updateStatistics();
+                updateCharts();
             }
 
             if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -392,6 +510,14 @@
             const isDark = document.documentElement.classList.toggle('dark');
             themeIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
             lucide.createIcons();
+            
+            // 同步修正圖表顏色
+            if (statusChart && trendChart) {
+                statusChart.destroy();
+                trendChart.destroy();
+                initCharts();
+                updateCharts();
+            }
             showToast(isDark ? '已開啟深色模式' : '已開啟淺色模式');
         });
 
@@ -442,6 +568,7 @@
 
             renderRecords();
             updateStatistics();
+            updateCharts(); // 同步刷新圖表數據
             showToast('預約建立中，正在同步至雲端試算表...');
 
             // 發送至後端
@@ -475,6 +602,7 @@
                 localStorage.setItem('reservations_cache', JSON.stringify(reservations));
                 renderRecords();
                 updateStatistics();
+                updateCharts(); // 實時連動圖表
                 showToast(`狀態更新中，同步至雲端...`);
 
                 // 同步更新至後端
@@ -490,6 +618,7 @@
             localStorage.setItem('reservations_cache', JSON.stringify(reservations));
             renderRecords();
             updateStatistics();
+            updateCharts(); // 實時連動圖表
             showToast('預約紀錄已自本地快取刪除（提醒：後端無刪除 API，重新整理將重新載入雲端資料）');
         }
 
@@ -526,14 +655,27 @@
             }, 3000);
         }
 
-        // 核心渲染邏輯 (Read Records)
+        // 核心渲染邏輯 (包含：篩選 Filter ➔ 搜尋 Search ➔ [新增] 排序 Sort)
         function renderRecords() {
             recordsList.innerHTML = '';
 
-            const filtered = reservations.filter(r => {
+            // 1. 執行 篩選 與 搜尋 運算
+            let filtered = reservations.filter(r => {
                 const matchesStatus = currentFilter === 'all' || r.status === currentFilter;
                 const matchesSearch = r.userId.toLowerCase().includes(searchQuery) || r.notes.toLowerCase().includes(searchQuery);
                 return matchesStatus && matchesSearch;
+            });
+
+            // 2. [功能新增] 執行排序多重邏輯
+            filtered.sort((a, b) => {
+                if (currentSort === 'timeDesc') {
+                    return new Date(b.reservationTime) - new Date(a.reservationTime); // 時間新到舊
+                } else if (currentSort === 'timeAsc') {
+                    return new Date(a.reservationTime) - new Date(b.reservationTime); // 時間舊到新
+                } else if (currentSort === 'paxDesc') {
+                    return b.pax - a.pax; // 用餐人數多到少
+                }
+                return 0;
             });
 
             if (filtered.length === 0) {
@@ -547,6 +689,7 @@
                 return;
             }
 
+            // 3. 輸出卡片 HTML 陣列 (完美補全 Week 3 原版斷尾處與對齊狀態變更按鈕)
             filtered.forEach(record => {
                 let statusColor = "";
                 let statusBadgeStyle = "";
@@ -609,35 +752,20 @@
                         ${record.notes}
                     </div>
 
-                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-2 justify-end">
-                        <span class="text-xs text-slate-400 self-center mr-auto">系統收單時間: ${record.createdAt}</span>
-                        
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex justify-end space-x-2">
                         ${record.status === 'pending' ? `
-                            <button onclick="changeStatus('${record.id}', 'confirmed')" class="flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors">
-                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
-                                <span>核准預約</span>
-                            </button>
+                            <button onclick="changeStatus('${record.id}', 'confirmed')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-xl transition-colors shadow-sm flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 mr-1"></i>核准</button>
                         ` : ''}
-
                         ${record.status === 'confirmed' ? `
-                            <button onclick="changeStatus('${record.id}', 'completed')" class="flex items-center space-x-1 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors">
-                                <i data-lucide="flag" class="w-3.5 h-3.5"></i>
-                                <span>完成用餐</span>
-                            </button>
+                            <button onclick="changeStatus('${record.id}', 'completed')" class="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-xs font-medium rounded-xl transition-colors shadow-sm flex items-center"><i data-lucide="sparkles" class="w-3.5 h-3.5 mr-1"></i>結案</button>
                         ` : ''}
-
                         ${record.status !== 'completed' && record.status !== 'cancelled' ? `
-                            <button onclick="changeStatus('${record.id}', 'cancelled')" class="flex items-center space-x-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-rose-950/20 dark:text-rose-400 text-xs font-semibold rounded-lg transition-colors">
-                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                                <span>取消預約</span>
-                            </button>
+                            <button onclick="changeStatus('${record.id}', 'cancelled')" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-950/50 dark:text-rose-400 text-xs font-medium rounded-xl transition-colors flex items-center"><i data-lucide="x" class="w-3.5 h-3.5 mr-1"></i>取消</button>
                         ` : ''}
                     </div>
                 `;
-
                 recordsList.appendChild(card);
             });
-
             lucide.createIcons();
         }
     </script>
